@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
+import jsQR from "jsqr";
 
 interface QRScannerProps {
   onScan: (data: string) => void;
@@ -13,30 +14,24 @@ export default function QRScanner({ onScan }: QRScannerProps) {
 
   useEffect(() => {
     let isMounted = true;
-
     const startCamera = async () => {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({
           video: {
-            facingMode: "environment", // Use back camera
+            facingMode: "environment",
             width: { ideal: 300 },
             height: { ideal: 300 },
           },
         });
-
         if (!isMounted) {
-          // Component unmounted, stop the stream
           stream.getTracks().forEach((track) => track.stop());
           return;
         }
-
         streamRef.current = stream;
-
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
         }
       } catch (err) {
-        console.error("Camera access error:", err);
         if (isMounted) {
           setError(
             "Camera access denied. Please allow camera permissions or use manual input."
@@ -44,10 +39,7 @@ export default function QRScanner({ onScan }: QRScannerProps) {
         }
       }
     };
-
     startCamera();
-
-    // Cleanup function
     return () => {
       isMounted = false;
       if (streamRef.current) {
@@ -62,7 +54,6 @@ export default function QRScanner({ onScan }: QRScannerProps) {
   const handleManualSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (manualInput.trim()) {
-      // Stop camera before calling onScan
       if (streamRef.current) {
         streamRef.current.getTracks().forEach((track) => track.stop());
         streamRef.current = null;
@@ -72,16 +63,36 @@ export default function QRScanner({ onScan }: QRScannerProps) {
   };
 
   const captureAndAnalyze = () => {
-    // For demo purposes, prompt user to use manual input
-    alert("QR scanning captured! Please use manual input below for demo.");
+    if (videoRef.current) {
+      const canvas = document.createElement("canvas");
+      canvas.width = videoRef.current.videoWidth;
+      canvas.height = videoRef.current.videoHeight;
+      const ctx = canvas.getContext("2d");
+      if (ctx) {
+        ctx.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
+        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const code = jsQR(imageData.data, canvas.width, canvas.height);
+        if (code && code.data) {
+          if (streamRef.current) {
+            streamRef.current.getTracks().forEach((track) => track.stop());
+            streamRef.current = null;
+          }
+          onScan(code.data);
+        } else {
+          alert("No QR code detected. Try again or use manual input.");
+        }
+      } else {
+        alert("Unable to capture frame. Please use manual input.");
+      }
+    } else {
+      alert("Camera not ready. Please use manual input.");
+    }
   };
 
   if (error) {
     return (
       <div className="text-center p-4">
         <div className="text-red-600 mb-4">{error}</div>
-
-        {/* Manual input form */}
         <form onSubmit={handleManualSubmit} className="space-y-3">
           <input
             type="text"
@@ -112,8 +123,6 @@ export default function QRScanner({ onScan }: QRScannerProps) {
           muted
           className="w-64 h-64 object-cover rounded-lg"
         />
-
-        {/* Scanning overlay */}
         <div className="absolute inset-0 border-2 border-green-500 rounded-lg pointer-events-none">
           <div className="absolute top-2 left-2 w-6 h-6 border-t-2 border-l-2 border-green-500"></div>
           <div className="absolute top-2 right-2 w-6 h-6 border-t-2 border-r-2 border-green-500"></div>
@@ -121,15 +130,12 @@ export default function QRScanner({ onScan }: QRScannerProps) {
           <div className="absolute bottom-2 right-2 w-6 h-6 border-b-2 border-r-2 border-green-500"></div>
         </div>
       </div>
-
       <button
         onClick={captureAndAnalyze}
         className="bg-blue-500 hover:bg-blue-600 text-white px-6 py-2 rounded-lg"
       >
         Capture QR Code
       </button>
-
-      {/* Manual input */}
       <div className="w-full">
         <p className="text-sm text-gray-600 text-center mb-2">
           Or enter Bus ID manually:

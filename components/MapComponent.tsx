@@ -103,6 +103,7 @@ interface ActiveBus {
   driver_name: string;
   route_name: string;
   source: string;
+  avg_speed: number;
   destination: string;
 }
 
@@ -293,19 +294,74 @@ const MapComponent: React.FC<MapComponentProps> = ({
                       <div>Lat: {stop.latitude.toFixed(6)}</div>
                       <div>Lng: {stop.longitude.toFixed(6)}</div>
                     </div>
-                    {busLocation && (
-                      <div className="text-xs text-gray-600 mt-1 pt-1 border-t">
-                        Distance from bus:{" "}
-                        {Math.round(
-                          calculateDistance(
-                            busLocation.latitude,
-                            busLocation.longitude,
-                            stop.latitude,
-                            stop.longitude
-                          )
-                        )}
-                        m
-                      </div>
+                    {busLocation && selectedBus && (
+                      <Marker
+                        position={[busLocation.latitude, busLocation.longitude]}
+                        icon={busIcon}
+                      >
+                        <Popup>
+                          <div className="text-center min-w-[200px]">
+                            <div className="font-semibold text-red-600 text-lg">
+                              🚌 {selectedBus.bus_name}
+                            </div>
+                            <div className="text-sm text-gray-700 mt-2">
+                              <div className="font-medium">
+                                {selectedBus.route_name}
+                              </div>
+                              <div className="text-xs text-gray-600">
+                                {selectedBus.source} → {selectedBus.destination}
+                              </div>
+                            </div>
+                            <div className="text-xs text-green-600 mt-2">
+                              Driver: {selectedBus.driver_name}
+                            </div>
+                            {nextStop && (
+                              <div className="text-xs text-amber-600 mt-2 p-2 bg-amber-50 rounded">
+                                <strong>Next Stop:</strong>
+                                <br />
+                                {nextStop.stop_name}
+                                <br />
+                                {(() => {
+                                  const distance = calculateDistance(
+                                    busLocation.latitude,
+                                    busLocation.longitude,
+                                    nextStop.latitude,
+                                    nextStop.longitude
+                                  );
+                                  const avgSpeed = selectedBus.avg_speed || 30; // fallback to 30 km/h if not available
+                                  const speedMS = (avgSpeed * 1000) / 3600;
+                                  const etaSec =
+                                    speedMS > 0 ? distance / speedMS : 0;
+                                  const etaMin = Math.round(etaSec / 60);
+                                  return (
+                                    <>
+                                      {Math.round(distance)} m away
+                                      <br />
+                                      ETA:{" "}
+                                      {etaMin > 0 ? `${etaMin} min` : "<1 min"}
+                                    </>
+                                  );
+                                })()}
+                              </div>
+                            )}
+                            <div className="text-xs text-gray-500 mt-1 pt-2 border-t">
+                              <div>Lat: {busLocation.latitude.toFixed(6)}</div>
+                              <div>Lng: {busLocation.longitude.toFixed(6)}</div>
+                              {busLocation.heading && (
+                                <div>
+                                  Heading: {busLocation.heading.toFixed(0)}°
+                                </div>
+                              )}
+                              <div>
+                                Updated:{" "}
+                                {new Date(
+                                  busLocation.timestamp
+                                ).toLocaleTimeString()}
+                              </div>
+                            </div>
+                          </div>
+                        </Popup>
+                      </Marker>
                     )}
                   </div>
                 </Popup>
